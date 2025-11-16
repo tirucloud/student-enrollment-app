@@ -21,19 +21,13 @@ FROM nginx:alpine AS production
 # Install security updates and remove unnecessary packages
 RUN apk update && apk upgrade && apk add --no-cache dumb-init && rm -rf /var/cache/apk/*
 
-# Create nginx user and directories
-RUN addgroup -g 1001 -S nginx && adduser -S nginx -u 1001 -G nginx
-
 # Copy built app to nginx
 COPY --from=build --chown=nginx:nginx /app/build /usr/share/nginx/html
 
 # Copy nginx config
 COPY --chown=nginx:nginx nginx.conf /etc/nginx/conf.d/default.conf
 
-# Remove default nginx user and switch to custom user
-RUN sed -i 's/user nginx;/user nginx nginx;/' /etc/nginx/nginx.conf
-
-# Switch to non-root user
+# Switch to non-root user (nginx user already exists in nginx:alpine)
 USER nginx
 
 # Expose port
