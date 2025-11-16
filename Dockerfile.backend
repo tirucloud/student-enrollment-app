@@ -1,20 +1,37 @@
-# Use Node.js official image
-FROM node:18-alpine
+# Build stage
+FROM node:18-alpine AS build
 
-# Set working directory
 WORKDIR /app
 
 # Copy package files
 COPY backend/package*.json ./
 
-# Install dependencies
-RUN npm install
+# Install only production dependencies
+RUN npm ci --only=production && npm cache clean --force
 
-# Copy backend source code
-COPY backend/ .
+# Production stage
+FROM node:18-alpine AS production
+
+# Install dumb-init for proper signal handling
+RUN apk add --no-cache dumb-init
+
+# Create app user
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
+
+WORKDIR /app
+
+# Copy production dependencies from build stage
+COPY --from=build --chown=nodejs:nodejs /app/node_modules ./node_modules
+
+# Copy application code
+COPY --chown=nodejs:nodejs backend/ ./
+
+# Switch to non-root user
+USER nodejs
 
 # Expose port
 EXPOSE 5000
 
-# Start the application
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["dumb-init", "--"]
 CMD ["npm", "start"]
